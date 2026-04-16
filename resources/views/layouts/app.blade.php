@@ -15,22 +15,24 @@
                 <h1 class="text-2xl font-bold tracking-wider text-indigo-400">CAZH<span class="text-white text-sm block font-normal">SECURE SYSTEM</span></h1>
             </div>
             
-        <nav class="flex-1 px-4 space-y-2 mt-4">
-    {{-- SEMUA MENU DITAMPILKAN SEMENTARA UNTUK DEVELOPMENT --}}
-    <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
+       <nav class="flex-1 px-4 space-y-2 mt-4">
+    {{-- MENU DASHBOARD --}}
+    <a href="/" class="flex items-center p-3 rounded-lg transition {{ request()->is('/') ? 'bg-slate-800 text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white' }}">
         <i class="fa-solid fa-chart-pie w-6"></i> <span>Dashboard</span>
     </a>
-    <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
+    
+    {{-- MENU TAMBAH SERTIFIKAT --}}
+    <a href="/tambah-sertifikat" class="flex items-center p-3 rounded-lg transition {{ request()->is('tambah-sertifikat') ? 'bg-slate-800 text-white' : 'text-gray-300 hover:bg-slate-800 hover:text-white' }}">
         <i class="fa-solid fa-circle-plus w-6"></i> <span>Tambah Sertifikat</span>
     </a>
+
+    {{-- MENU LAINNYA (Biarkan dulu pakai # karena belum kita buat halamannya) --}}
     <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
         <i class="fa-solid fa-clipboard-list w-6"></i> <span>Riwayat Sertifikat</span>
     </a>
     <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
         <i class="fa-solid fa-key w-6"></i> <span>Kriptografi</span>
     </a>
-    
-    {{-- MENU VERIFIKASI (QC) GABUNG DI SINI SEMENTARA --}}
     <a href="#" class="flex items-center p-3 text-indigo-400 hover:bg-slate-800 hover:text-indigo-300 rounded-lg transition">
         <i class="fa-solid fa-check-double w-6"></i> <span>Verifikasi (QC)</span>
     </a>
