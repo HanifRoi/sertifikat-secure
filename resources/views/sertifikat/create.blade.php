@@ -3,6 +3,24 @@
 @section('title', 'Amankan Sertifikat Baru')
 
 @section('content')
+
+    @if ($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+            <strong class="font-bold">Oops! Ada kesalahan:</strong>
+            <ul class="list-disc pl-5 mt-2 text-sm">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    @if (session('error'))
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow-sm">
+            <strong class="font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Gagal!</strong>
+            <span class="block sm:inline mt-1">{{ session('error') }}</span>
+        </div>
+    @endif
+
 <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)]">
 
     <div class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-y-auto">

@@ -10,7 +10,7 @@
 <body class="bg-gray-100 font-sans">
 
     <div class="min-h-screen flex">
-        <aside class="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col">
+        <aside class="w-64 bg-slate-900 text-white shrink-0 hidden md:flex flex-col">
             <div class="p-6">
                 <h1 class="text-2xl font-bold tracking-wider text-indigo-400">CAZH<span class="text-white text-sm block font-normal">SECURE SYSTEM</span></h1>
             </div>
@@ -30,7 +30,7 @@
     <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
         <i class="fa-solid fa-clipboard-list w-6"></i> <span>Riwayat Sertifikat</span>
     </a>
-    <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
+    <a href="kriptografi" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
         <i class="fa-solid fa-key w-6"></i> <span>Kriptografi</span>
     </a>
     <a href="#" class="flex items-center p-3 text-indigo-400 hover:bg-slate-800 hover:text-indigo-300 rounded-lg transition">
