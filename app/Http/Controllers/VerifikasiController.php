@@ -11,14 +11,20 @@ class VerifikasiController extends Controller
 {
     public function index($token)
     {
-        // 1. Cari data di database berdasarkan Token
         $certificate = Certificate::with('participant')
-            ->where('qr_code_path', $token) // KITA CARI BERDASARKAN TOKEN
+            ->where('qr_code_path', $token) 
             ->first();
 
         if (!$certificate) {
             return abort(404, 'AWAS: Sertifikat Tidak Ditemukan atau Berpotensi Palsu!');
         }
+
+        // --- TAMBAHKAN BLOK INI ---
+        // Jika sertifikat sudah dicabut, tolak akses dan beri tahu alasannya
+        if ($certificate->status === 'dicabut') {
+            return abort(403, 'SERTIFIKAT DIBATALKAN: Dokumen ini telah dicabut secara resmi oleh pihak PT Cazh dan tidak lagi berlaku.');
+        }
+        // --------------------------
 
         return view('verifikasi.index', [
             'certificate' => $certificate,
@@ -38,8 +44,12 @@ class VerifikasiController extends Controller
         // 2. HASING PDF YANG DI-UPLOAD PENGGUNA (YANG ADA STEMPELNYA)
         $uploadedHash = hash_file('sha3-512', $file->getRealPath());
 
-        // 3. Panggil Data Asli
         $certificate = Certificate::where('qr_code_path', $request->token)->first();
+
+        // --- TAMBAHKAN BLOK INI JUGA ---
+        if ($certificate && $certificate->status === 'dicabut') {
+            return back()->with('error', 'DITOLAK! Sertifikat ini telah DICABUT/DIBATALKAN secara resmi oleh PT Cazh.');
+        }
 
         if (!$certificate) {
             return back()->with('error', 'Akses Ditolak: Token tidak valid.');
