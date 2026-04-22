@@ -24,3 +24,7 @@ Route::get('/download-sertifikat/{filename}', [App\Http\Controllers\SertifikatCo
 Route::get('/verify/{token}', [VerifikasiController::class, 'index'])->name('verify.index');
 // Jalur untuk memproses uji kriptografi dokumen
 Route::post('/verify/process', [VerifikasiController::class, 'process'])->name('verify.process');
+Route::get('/riwayat-sertifikat', [App\Http\Controllers\SertifikatController::class, 'index'])->name('sertifikat.index');
+Route::get('/sertifikat/create', [SertifikatController::class, 'create'])->name('sertifikat.create');
+// Misi C: Jalur untuk mencabut sertifikat
+Route::post('/sertifikat/{id}/revoke', [App\Http\Controllers\SertifikatController::class, 'revoke'])->name('sertifikat.revoke');

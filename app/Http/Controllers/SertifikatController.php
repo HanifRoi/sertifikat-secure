@@ -14,6 +14,28 @@ use Illuminate\Support\Str; // TAMBAHAN UNTUK GENERATE TOKEN
 
 class SertifikatController extends Controller
 {
+    // Menampilkan halaman Riwayat Sertifikat
+    public function index()
+    {
+        // Ambil semua data sertifikat beserta identitas pesertanya, urutkan dari yang paling baru
+        $certificates = Certificate::with('participant')->latest()->get();
+        
+        return view('sertifikat.index', compact('certificates'));
+    }
+
+    // Fungsi untuk mencabut/membatalkan sertifikat
+    public function revoke($id)
+    {
+        $certificate = Certificate::findOrFail($id);
+        
+        // Ubah statusnya menjadi 'dicabut'
+        $certificate->update([
+            'status' => 'dicabut'
+        ]);
+
+        return back()->with('success', 'Sertifikat atas nama ' . $certificate->participant->name . ' berhasil dicabut!');
+    }
+    
     public function create()
     {
         return view('sertifikat.create');

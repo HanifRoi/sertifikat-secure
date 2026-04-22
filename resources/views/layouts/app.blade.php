@@ -27,7 +27,7 @@
     </a>
 
     {{-- MENU LAINNYA (Biarkan dulu pakai # karena belum kita buat halamannya) --}}
-    <a href="#" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
+    <a href="riwayat-sertifikat" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
         <i class="fa-solid fa-clipboard-list w-6"></i> <span>Riwayat Sertifikat</span>
     </a>
     <a href="kriptografi" class="flex items-center p-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition">
