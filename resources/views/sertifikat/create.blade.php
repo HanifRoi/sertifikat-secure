@@ -26,20 +26,20 @@
     <div class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
         <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Data Sertifikat</h3>
         
-        <form action="/tambah-sertifikat" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form action="{{ route('sertifikat.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             
             <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6">
-                <label class="block text-sm font-semibold text-indigo-800 mb-2">1. Upload File Sertifikat (PDF)</label>
+                <label class="block text-sm font-semibold text-purple-800 mb-2">1. Upload File Sertifikat (PDF)</label>
                 <input type="file" id="file_pdf" name="file_pdf" accept="application/pdf" required
                        class="block w-full text-sm text-slate-500
                               file:mr-4 file:py-2 file:px-4
                               file:rounded-md file:border-0
                               file:text-sm file:font-semibold
-                              file:bg-indigo-600 file:text-white
-                              hover:file:bg-indigo-700
+                              file:bg-purple-700 file:text-white
+                              hover:file:bg-purple-500
                               cursor-pointer">
-                <p class="text-xs text-indigo-600 mt-2">*Pilih file untuk memunculkan preview di layar kanan</p>
+                <p class="text-xs text-purple-700 mt-2">*Pilih file untuk memunculkan preview di layar kanan</p>
             </div>
 
            <div>

@@ -28,7 +28,7 @@ class Certificate extends Model
     // Relasi ke tabel users (admin yang upload)
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     // Relasi ke tabel rsa_keys

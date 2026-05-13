@@ -18,8 +18,17 @@ class User extends Authenticatable
         'role',
     ];
 
+    // Menyembunyikan password agar tidak bocor jika data dipanggil
     protected $hidden = [
         'password',
+    ];
+
+    /**
+     * MESIN AUTO-HASH
+     * Otomatis mengubah teks biasa menjadi Bcrypt saat disimpan ke database
+     */
+    protected $casts = [
+        'password' => 'hashed',
     ];
 
     // Relasi: 1 User (Admin) punya banyak Certificates

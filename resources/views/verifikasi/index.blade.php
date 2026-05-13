@@ -9,7 +9,7 @@
         <h1 class="text-3xl font-extrabold text-slate-800">
             <i class="fa-solid fa-shield-halved text-indigo-600 mr-2"></i> Verifikasi Keaslian Sertifikat
         </h1>
-        <p class="text-gray-500 mt-2">Sistem Pengecekan Kriptografi SHA3-512 & Asimetris RSA</p>
+        <p class="text-gray-500 mt-2">Sistem Pengecekan Keaslian Sertifikat</p>
     </div>
 
     @if (session('error'))
@@ -36,7 +36,7 @@
         
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="bg-indigo-50 border-b border-indigo-100 p-5">
-                <h2 class="text-lg font-bold text-indigo-900">
+                <h2 class="text-lg font-bold text-purple-900">
                     <i class="fa-solid fa-database mr-2"></i> Data Rekam Jejak Sistem
                 </h2>
             </div>
@@ -66,8 +66,8 @@
 
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="bg-slate-50 border-b border-slate-200 p-5">
-                <h2 class="text-lg font-bold text-slate-800">
-                    <i class="fa-solid fa-microscope mr-2"></i> Uji Klinis Dokumen
+                <h2 class="text-lg font-bold text-purple-800">
+                    <i class="fa-solid fa-microscope mr-2"></i> Uji Dokumen
                 </h2>
             </div>
             <div class="p-6 flex flex-col justify-between h-[calc(100%-4rem)]">
@@ -80,9 +80,9 @@
                         @csrf
                         <input type="hidden" name="token" value="{{ $token }}">
                         
-                        <div class="border-2 border-dashed border-indigo-200 rounded-xl p-8 text-center hover:bg-indigo-50 transition cursor-pointer mb-6" onclick="document.getElementById('file_pdf').click()">
+                        <div id="drop-area" class="border-2 border-dashed border-indigo-200 rounded-xl p-8 text-center hover:bg-purple-50 transition cursor-pointer mb-6" onclick="document.getElementById('file_pdf').click()">
                             <i class="fa-regular fa-file-pdf text-5xl text-red-400 mb-4"></i>
-                            <p class="text-sm font-semibold text-indigo-700 mb-1">Klik untuk memilih file PDF</p>
+                            <p class="text-sm font-semibold text-purple-700 mb-1">Klik untuk memilih file PDF</p>
                             <p class="text-xs text-gray-400">Atau seret dan lepas file di sini</p>
                             <input type="file" id="file_pdf" name="file_pdf" accept="application/pdf" required class="hidden">
                         </div>
@@ -99,15 +99,62 @@
 </div>
 
 <script>
-    // Script kecil untuk mengubah teks saat file PDF sudah dipilih
-    document.getElementById('file_pdf').addEventListener('change', function(e) {
+    const fileInput = document.getElementById('file_pdf');
+    const dropArea = document.getElementById('drop-area');
+
+    // 1. Script untuk mengubah teks saat file PDF sudah dipilih (klik atau drop)
+    fileInput.addEventListener('change', function(e) {
         if(e.target.files.length > 0) {
             const fileName = e.target.files[0].name;
             const dropzoneText = this.previousElementSibling.previousElementSibling;
             dropzoneText.innerHTML = `File terpilih:<br><span class="text-slate-800 font-bold">${fileName}</span>`;
-            dropzoneText.classList.remove('text-indigo-700');
+            dropzoneText.classList.remove('text-purple-700');
             dropzoneText.classList.add('text-emerald-600');
         }
     });
+
+    // 2. Mencegah browser membuka PDF di tab baru
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // 3. Efek visual saat file diseret ke atas kotak
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, () => {
+            dropArea.classList.add('bg-purple-100');
+            dropArea.classList.add('border-purple-400');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, () => {
+            dropArea.classList.remove('bg-purple-100');
+            dropArea.classList.remove('border-purple-400');
+        }, false);
+    });
+
+    // 4. Menangkap file yang dijatuhkan (drop)
+    dropArea.addEventListener('drop', (e) => {
+        let dt = e.dataTransfer;
+        let files = dt.files;
+
+        if (files.length > 0) {
+            if (files[0].type !== "application/pdf") {
+                alert("Mohon maaf, hanya file PDF yang diizinkan.");
+                return;
+            }
+
+            // Masukkan file ke tag input tersembunyi
+            fileInput.files = files;
+
+            // PENTING: Picu event 'change' agar teks nama file ikut berubah
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    }, false);
 </script>
 @endsection
