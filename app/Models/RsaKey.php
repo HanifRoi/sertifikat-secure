@@ -10,9 +10,16 @@ class RsaKey extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',      // <--- TAMBAHKAN INI
         'private_key', 
         'public_key', 
         'is_active', 
         'description'
     ];
+
+    // Relasi: Kunci ini dibangkitkan oleh siapa?
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

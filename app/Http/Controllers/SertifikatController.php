@@ -10,37 +10,33 @@ use phpseclib3\Crypt\RSA;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use setasign\Fpdi\Tcpdf\Fpdi; 
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str; // TAMBAHAN UNTUK GENERATE TOKEN
+use Illuminate\Support\Str;
 
 class SertifikatController extends Controller
 {
-    // Menampilkan halaman Riwayat Sertifikat
+    /**
+     * Misi C: Menampilkan Daftar Riwayat Sertifikat
+     */
     public function index()
     {
-        // Ambil semua data sertifikat beserta identitas pesertanya, urutkan dari yang paling baru
         $certificates = Certificate::with('participant')->latest()->get();
-        
         return view('sertifikat.index', compact('certificates'));
     }
 
-    // Fungsi untuk mencabut/membatalkan sertifikat
-    public function revoke($id)
-    {
-        $certificate = Certificate::findOrFail($id);
-        
-        // Ubah statusnya menjadi 'dicabut'
-        $certificate->update([
-            'status' => 'dicabut'
-        ]);
-
-        return back()->with('success', 'Sertifikat atas nama ' . $certificate->participant->name . ' berhasil dicabut!');
-    }
-    
+    /**
+     * Menampilkan Form Tambah Sertifikat
+     */
     public function create()
     {
         return view('sertifikat.create');
     }
 
+    /**
+     * Misi A: Proses Pembuatan Sertifikat dengan Kriptografi
+     */
+    /**
+     * Misi A: Proses Pembuatan Sertifikat dengan Kriptografi
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -55,17 +51,17 @@ class SertifikatController extends Controller
         if ($request->hasFile('file_pdf')) {
             $file = $request->file('file_pdf');
 
-            // 1. CEK KUNCI MASTER DULU
+            // 1. Cek Kunci RSA yang sedang Aktif
             $activeKey = RsaKey::where('is_active', true)->first();
             if (!$activeKey) {
-                return back()->with('error', 'Kunci Master RSA belum aktif.');
+                return back()->with('error', 'Kunci Master RSA belum aktif. Silakan aktifkan kunci di menu Kriptografi.');
             }
 
-            // 2. GENERATE TOKEN ACAK UNTUK QR CODE (Pengganti potongan Hash)
+            // 2. Generate Token Unik (15 Karakter) untuk URL Verifikasi
             $token = Str::random(15);
             $verificationUrl = url('/verify/' . $token); 
 
-            // 3. SIAPKAN PATH FILE
+            // 3. Penyiapan Path & Nama File
             $fileName = time() . '_' . str_replace(' ', '_', $file->getClientOriginalName());
             $mentahPathRelative = $file->storeAs('public/sertifikat_mentah', $fileName);
             $mentahAbsolutePath = Storage::path($mentahPathRelative);
@@ -78,9 +74,7 @@ class SertifikatController extends Controller
             }
             $finalAbsolutePath = Storage::path($finalPathRelative);
 
-            // ==========================================
-            // 4. STEMPEL QR DULUAN (IDE JENIUS HANIF)
-            // ==========================================
+            // 4. STEMPEL QR CODE KE PDF
             $pdf = new Fpdi();
             $pdf->setPrintHeader(false);
             $pdf->setPrintFooter(false);
@@ -103,29 +97,40 @@ class SertifikatController extends Controller
                         'bgcolor' => array(255, 255, 255) 
                     );
                     $pdf->write2DBarcode($verificationUrl, 'QRCODE,M', 218, 178, 30, 30, $style, 'N');
+                    
                     $pdf->SetFont('helvetica', 'B', 8);
                     $pdf->SetXY(218, 209); 
                     $pdf->Cell(30, 4, 'TERVERIFIKASI', 0, 0, 'C');
                 }
             }
 
-            // SIMPAN PDF FINAL YANG SUDAH DISTEMPEL
             $pdf->Output($finalAbsolutePath, 'F');
 
-            // ==========================================
-            // 5. BARU KITA PROSES KRIPTOGRAFINYA! 
-            // (Hash dokumen final, bukan mentahan)
-            // ==========================================
+            // --- 5. PROSES KRIPTOGRAFI & PENGUKURAN PERFORMA ---
             
-            $fileHash = hash_file('sha3-512', $finalAbsolutePath);
+            // A. Ukur Kecepatan Hashing SHA3-512
+            $startHashTime = microtime(true);
+            $fileHashHex = hash_file('sha3-512', $finalAbsolutePath);
+            $endHashTime = microtime(true);
+            $waktuHashing = $endHashTime - $startHashTime; // Hasil dalam detik
 
+            // B. Konversi ke Biner Full (512-bit) untuk Uji Avalanche Effect
+            $fileHashBinerFull = '';
+            foreach (str_split($fileHashHex) as $char) {
+                // Ubah setiap 1 karakter hex menjadi 4 digit biner (0000 s/d 1111)
+                $fileHashBinerFull .= str_pad(base_convert($char, 16, 2), 4, '0', STR_PAD_LEFT);
+            }
+
+            // C. Ukur Kecepatan Enkripsi (Signing) RSA
+            $startRsaTime = microtime(true);
             $privateKey = RSA::loadPrivateKey($activeKey->private_key);
-            $signatureBiner = $privateKey->sign($fileHash);
+            $signatureBiner = $privateKey->sign($fileHashHex); // Yang di-sign tetap Hex-nya
             $digitalSignature = base64_encode($signatureBiner);
+            $endRsaTime = microtime(true);
+            $waktuRsa = $endRsaTime - $startRsaTime; // Hasil dalam detik
 
-            // ==========================================
-            // 6. SIMPAN SEMUANYA KE DATABASE
-            // ==========================================
+
+            // 6. SIMPAN DATA KE DATABASE
             $participant = Participant::firstOrCreate(
                 ['identifier_number' => $request->identifier_number], 
                 [
@@ -140,40 +145,61 @@ class SertifikatController extends Controller
                 'user_id'           => auth()->id() ?? 1,
                 'key_id'            => $activeKey->id,      
                 'program'           => $request->program,
-                'file_path'         => $finalPathRelative,  // Simpan path final
-                'document_hash'     => $fileHash,           // Hash dokumen final!
+                'file_path'         => $finalPathRelative,  
+                'document_hash'     => $fileHashHex, // Simpan Hex di DB agar efisien
                 'digital_signature' => $digitalSignature,
-                'qr_code_path'      => $token,              // KITA SIMPAN TOKEN DI SINI
+                'qr_code_path'      => $token,              
                 'publish_date'      => now()->toDateString(),
                 'status'            => 'secured'            
             ]);
 
-            // Optional: Hapus file mentah agar server tidak penuh
             Storage::delete($mentahPathRelative);
-
-            // ==========================================
 
             $qrCode = QrCode::size(200)->generate($verificationUrl);
             $downloadLink = route('sertifikat.download', ['filename' => $finalFileName]);
 
+            // Tambahkan data performa dan biner ke View
             return view('sertifikat.success', [
-                'qrCode'       => $qrCode,
-                'hash'         => $fileHash,
-                'signature'    => $digitalSignature,
-                'peserta'      => $participant->name,
-                'downloadLink' => $downloadLink
+                'qrCode'        => $qrCode,
+                'hash'          => $fileHashHex,
+                'hashBiner'     => $fileHashBinerFull, // Lempar Biner 512 bit ke View
+                'waktuHashing'  => number_format($waktuHashing, 5), // Format 5 angka di belakang koma
+                'waktuRsa'      => number_format($waktuRsa, 5), 
+                'signature'     => $digitalSignature,
+                'peserta'       => $participant->name,
+                'downloadLink'  => $downloadLink,
+                'token'         => $token
             ]);
         }
 
-        return back()->with('error', 'Gagal memproses file.');
+        return back()->with('error', 'Gagal memproses file PDF.');
     }
 
+    /**
+     * Misi C: Fitur Pencabutan Sertifikat
+     */
+    public function revoke($id)
+    {
+        $certificate = Certificate::findOrFail($id);
+        
+        $certificate->update([
+            'status' => 'dicabut'
+        ]);
+
+        return back()->with('success', 'Sertifikat atas nama ' . $certificate->participant->name . ' telah berhasil dicabut.');
+    }
+
+    /**
+     * Fungsi untuk Mengunduh PDF yang Sudah Tersertifikasi
+     */
     public function downloadFile($filename)
     {
         $path = 'public/sertifikat_final/' . $filename;
+        
         if (Storage::exists($path)) {
             return Storage::download($path);
         }
-        return abort(404, 'Maaf, file sertifikat tidak ditemukan di server.');
+
+        return abort(404, 'File sertifikat tidak ditemukan di server.');
     }
 }

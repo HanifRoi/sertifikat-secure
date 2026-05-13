@@ -13,7 +13,7 @@
             <p class="text-gray-500 mt-1">Daftar seluruh dokumen yang telah diamankan dengan Kriptografi</p>
         </div>
         <div>
-            <a href="{{ route('sertifikat.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition">
+            <a href="{{ route('sertifikat.create') }}" class="bg-purple-700 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg shadow transition">
                 <i class="fa-solid fa-plus mr-1"></i> Buat Baru
             </a>
         </div>
@@ -48,7 +48,12 @@
                             <p class="text-xs text-gray-500">{{ $cert->participant->identifier_number }} • {{ $cert->participant->institution }}</p>
                         </td>
                         <td class="p-4 text-gray-700 font-medium">{{ $cert->program }}</td>
-                        <td class="p-4 text-gray-600">{{ \Carbon\Carbon::parse($cert->publish_date)->translatedFormat('d F Y') }}</td>
+                        <td class="p-4">
+                            <p class="text-gray-700 font-medium">{{ \Carbon\Carbon::parse($cert->publish_date)->translatedFormat('d F Y') }}</p>
+                            <p class="text-[11px] text-gray-400 mt-1" title="Admin yang menerbitkan">
+                                <i class="fa-solid fa-user-pen mr-1"></i> {{ $cert->user->name ?? 'Sistem' }}
+                            </p>
+                        </td>
                         
                         <td class="p-4 text-center">
                             @if($cert->status === 'secured')
