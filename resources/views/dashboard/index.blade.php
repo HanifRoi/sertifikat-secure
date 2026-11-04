@@ -3,8 +3,22 @@
 @section('title', 'Dashboard Kriptografi')
 
 @section('content')
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+@if (session('success'))
+        <div id="toast-wrapper" class="fixed top-5 left-0 right-0 flex justify-center z-50 pointer-events-none transition-opacity duration-500 transform -translate-y-full opacity-0">
+            <div id="toast-success" class="pointer-events-auto bg-white border-l-4 border-emerald-500 shadow-2xl rounded-xl p-4 flex items-start max-w-sm mx-5">
+                <div class="bg-emerald-100 text-emerald-600 rounded-full w-8 h-8 flex items-center justify-center mr-3 shrink-0">
+                    <i class="fa-solid fa-check text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Berhasil!</h3>
+                    <p class="text-xs text-gray-500 mt-1">{{ session('success') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
 <div class="max-w-7xl mx-auto mt-6">
     
     <div class="mb-8">
@@ -46,10 +60,10 @@
             </div>
         </div>
 
-        <div class="bg-purple-700 rounded-2xl shadow-sm border border-slate-800 p-6 flex items-center hover:shadow-md transition relative overflow-hidden">
+        <div class="bg-indigo-700 rounded-2xl shadow-sm border border-slate-800 p-6 flex items-center hover:shadow-md transition relative overflow-hidden">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-indigo-500 rounded-full opacity-20 blur-xl"></div>
             
-            <div class="bg-purple-700 text-white p-4 rounded-xl mr-4 text-2xl relative z-10">
+            <div class="bg-indigo-700 text-white p-4 rounded-xl mr-4 text-2xl relative z-10">
                 <i class="fa-solid fa-key"></i>
             </div>
             <div class="relative z-10">
@@ -113,45 +127,73 @@
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const ctx = document.getElementById('sertifikatChart').getContext('2d');
+    document.addEventListener('DOMContentLoaded', function() {
         
-        // Menerima data dari Controller
-        const labels = @json($months);
-        const dataPoint = @json($monthlyCounts);
+        // --- 1. Logika Notifikasi Pop-up (Toast) Tengah Atas ---
+        // Sekarang kita targetkan wrapper-nya buat animasi
+        const toastWrapper = document.getElementById('toast-wrapper');
+        if (toastWrapper) {
+            // Animasi masuk (muncul & TURUN dari atas ke bawah)
+            setTimeout(() => {
+                // Hilangkan class sembunyi (-translate-y-full & opacity-0)
+                toastWrapper.classList.remove('-translate-y-full', 'opacity-0');
+                // Tambahkan class muncul (translate-y-0 & opacity-100)
+                toastWrapper.classList.add('translate-y-0', 'opacity-100');
+            }, 100);
 
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Jumlah Sertifikat Diterbitkan',
-                    data: dataPoint,
-                    backgroundColor: 'rgba(79, 70, 229, 0.2)', // Warna Indigo Tailwind dengan transparansi
-                    borderColor: 'rgba(79, 70, 229, 1)',
-                    borderWidth: 2,
-                    borderRadius: 6, // Ujung bar agak melengkung
-                    hoverBackgroundColor: 'rgba(79, 70, 229, 0.4)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1 // Agar angka di sumbu Y selalu bulat
+            // Set timer 2.5 detik untuk mulai menghilang
+            setTimeout(() => {
+                // Animasi keluar (geser NAIK kembali ke atas & transparan)
+                toastWrapper.classList.remove('translate-y-0', 'opacity-100');
+                toastWrapper.classList.add('-translate-y-full', 'opacity-0');
+                
+                // Tunggu transisi CSS selesai (500ms), lalu hilangkan elemen dari DOM biar gak ngebruk
+                setTimeout(() => {
+                    toastWrapper.style.display = 'none';
+                }, 500); 
+            }, 2500);
+        }
+
+        // --- 2. Logika Chart.js ---
+        const canvas = document.getElementById('sertifikatChart');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const labels = @json($months);
+            const dataPoint = @json($monthlyCounts);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Jumlah Sertifikat Diterbitkan',
+                        data: dataPoint,
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)', 
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 2,
+                        borderRadius: 6, 
+                        hoverBackgroundColor: 'rgba(79, 70, 229, 0.4)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1 
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false 
                         }
                     }
-                },
-                plugins: {
-                    legend: {
-                        display: false // Sembunyikan tulisan legend di atas agar lebih bersih
-                    }
                 }
-            }
-        });
+            });
+        }
     });
 </script>
 @endsection

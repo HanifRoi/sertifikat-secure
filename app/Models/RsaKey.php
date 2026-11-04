@@ -22,4 +22,9 @@ class RsaKey extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    // INI ADALAH BARIS AJAIBNYA
+    protected $casts = [
+        'private_key' => 'encrypted', 
+    ];
 }

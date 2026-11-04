@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class Certificate extends Model
 {
     protected $fillable = [
+        'certificate_number',
+        'grades',
         'participant_id',
         'user_id',
         'key_id',
-        'program',
         'file_path',
         'document_hash',
         'digital_signature',

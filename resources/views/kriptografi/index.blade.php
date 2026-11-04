@@ -12,8 +12,10 @@
         </div>
         <form action="/kriptografi/generate" method="POST">
             @csrf
+            {{-- <input type="text" name="description" placeholder="Catatan/Deskripsi kunci..." 
+                   class="w-full md:w-64 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"> --}}
             <button type="submit" onclick="return confirm('Bangkitkan kunci baru? Kunci lama akan dinonaktifkan.')" 
-                    class="bg-purple-700 text-white px-6 py-3 rounded-lg font-bold hover:bg-purple-500 transition flex items-center gap-2">
+                    class="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-800 transition flex items-center gap-2">
                 <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Key
             </button>
         </form>
@@ -40,8 +42,20 @@
                 <i class="fa-solid fa-key text-xl"></i>
                 <h4 class="font-bold uppercase tracking-wider text-sm">Private Key (Aktif)</h4>
             </div>
-            <textarea readonly class="w-full h-48 p-4 bg-slate-900 border border-gray-800 rounded-lg font-mono text-xs text-indigo-300 focus:outline-none">{{ $activeKey->private_key ?? 'Belum ada kunci aktif' }}</textarea>
-            <p class="text-[10px] text-gray-400 mt-2 text-rose-500 font-semibold">*RAHASIA: Kunci ini hanya digunakan oleh internal sistem untuk enkripsi.</p>
+            <textarea readonly disabled class="w-full h-48 p-4 bg-slate-900 border border-gray-800 rounded-lg font-mono text-xs text-emerald-400 focus:outline-none select-none cursor-not-allowed">
+@if($activeKey)
+*************************************************************
+* 🔒 PRIVATE KEY DIAMANKAN OLEH SISTEM (ENVELOPE ENCRYPTION)*
+* *
+* Kunci rahasia tidak ditampilkan di layar demi keamanan.   *
+* Sistem membaca kunci ini secara otomatis di belakang      *
+* layar saat melakukan Digital Signature.                   *
+*************************************************************
+@else
+Belum ada kunci aktif
+@endif
+</textarea>
+            <p class="text-[10px] mt-2 text-rose-500 font-bold">*RAHASIA: Kunci ini hanya digunakan oleh internal sistem untuk enkripsi.</p>
         </div>
     </div>
 
@@ -53,7 +67,8 @@
            <thead class="bg-gray-50 text-gray-500 uppercase text-xs font-bold">
                 <tr>
                     <th class="px-6 py-4">Waktu Generate</th>
-                    <th class="px-6 py-4">Dibuat Oleh</th> <th class="px-6 py-4">Deskripsi</th>
+                    <th class="px-6 py-4">Dibuat Oleh</th> 
+                    <th class="px-6 py-4">Deskripsi</th>
                     <th class="px-6 py-4">Status</th>
                 </tr>
             </thead>
@@ -63,7 +78,7 @@
                     <td class="px-6 py-4 text-sm text-gray-600">{{ $key->created_at->format('d M Y, H:i') }}</td>
                     
                     <td class="px-6 py-4">
-                        <span class="inline-flex items-center text-sm font-semibold text-purple-600">
+                        <span class="inline-flex items-center text-sm font-semibold text-slate-700">
                             <i class="fa-solid fa-user-shield mr-2"></i> {{ $key->user->name ?? 'Sistem Lama' }}
                         </span>
                     </td>
