@@ -3,10 +3,24 @@
 @section('title', 'Portal Verifikasi Kriptografi')
 
 @section('content')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
 <div class="max-w-4xl mx-auto mt-8 text-center">
     
+    @if (session('error'))
+        <div class="max-w-md mx-auto mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm text-left animate-pulse">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-bold text-red-800">Verifikasi Ditolak</h3>
+                    <p class="text-sm text-red-700 mt-1">{{ session('error') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
     <div class="mb-8">
         <h1 class="text-3xl font-extrabold text-slate-800 mb-3">
             <i class="fa-solid fa-qrcode text-indigo-600 mr-2"></i> Verifikasi Dokumen
@@ -37,7 +51,7 @@
                     <input type="text" id="tokenManual" placeholder="Masukkan 15 karakter..." required autocomplete="off" minlength="15" maxlength="15"
                         class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition font-mono tracking-widest text-center">
                 </div>
-                <button type="submit" class="w-full bg-purple-700 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-xl shadow transition mt-2">
+                <button type="submit" class="w-full bg-green-700 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-xl shadow transition mt-2">
                     Cek Token <i class="fa-solid fa-arrow-right ml-1"></i>
                 </button>
             </form>
@@ -49,34 +63,67 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Fungsi jika QR berhasil terbaca
+        
+        let html5QrcodeScanner; 
+
         function onScanSuccess(decodedText, decodedResult) {
-            // Hentikan kamera agar tidak scan berkali-kali
-            html5QrcodeScanner.clear(); 
             
-            // Tampilkan efek loading sederhana
-            document.getElementById('reader').innerHTML = '<div class="p-8 text-center"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-600 mb-4"></i><p class="text-sm font-bold text-gray-700">QR Terdeteksi! Mengalihkan...</p></div>';
-            
-            // DecodedText berisi URL lengkap, langsung arahkan browser ke sana.
-            window.location.href = decodedText;
+            const keywordValid = '/verify/'; 
+
+            if (decodedText.includes(keywordValid)) {
+                
+                // 1. Matikan scanner dulu, ini berupa Promise
+                html5QrcodeScanner.clear().then(() => {
+                    // 2. Munculkan animasi loading
+                    document.getElementById('reader').innerHTML = '<div class="p-8 text-center"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-600 mb-4"></i><p class="text-sm font-bold text-gray-700">QR Terdeteksi! Mengalihkan ke halaman verifikasi...</p></div>';
+                    
+                    // 3. Tahan browser selama 1 detik (1000ms) agar animasi terlihat, baru pindah halaman
+                    setTimeout(() => {
+                        window.location.href = decodedText;
+                    }, 1000);
+                }).catch(err => {
+                    // Jaga-jaga kalau scannernya gagal dimatikan, tetep paksa pindah
+                    window.location.href = decodedText;
+                });
+
+            } else {
+                
+                // JIKA TIDAK VALID:
+                // Cek state 2 (SCANNING), jika ya, maka pause kamera
+                if (html5QrcodeScanner.getState() === 2) {
+                    html5QrcodeScanner.pause();
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'QR Code Ditolak!',
+                    text: 'Ini bukan QR Code E-Sertifikat CAZHSECURE yang valid.',
+                    confirmButtonText: 'Coba Lagi',
+                    confirmButtonColor: '#4f46e5'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Cek state 3 (PAUSED), jika ya, maka resume kamera
+                        if (html5QrcodeScanner.getState() === 3) { 
+                            html5QrcodeScanner.resume();
+                        }
+                    }
+                });
+            }
         }
 
-        // Inisialisasi Mesin Scanner
-        let html5QrcodeScanner = new Html5QrcodeScanner(
+        html5QrcodeScanner = new Html5QrcodeScanner(
             "reader", 
             { 
                 fps: 10, 
                 qrbox: {width: 250, height: 250},
                 rememberLastUsedCamera: true
             }, 
-            /* verbose= */ false
+            false
         );
         
-        // Jalankan Scanner
         html5QrcodeScanner.render(onScanSuccess);
     });
 
-    // Fungsi untuk form input manual (Dilindungi agar tidak error jika elemen tidak ada)
     function prosesManual() {
         let tokenInput = document.getElementById('tokenManual');
         if(tokenInput && tokenInput.value) {
@@ -87,9 +134,9 @@
 
 <style>
     #reader button {
-        background-color: #8424D6; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; margin: 4px; font-size: 14px;
+        background-color: #FF6347; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; margin: 4px; font-size: 14px;
     }
-    #reader button:hover { background-color: #9c57d8; }
+    #reader button:hover { background-color: #8B0000; }
     #reader a { color: #4f46e5; text-decoration: none; font-size: 14px; }
     #reader select { padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 10px; width: 80%; }
 </style>

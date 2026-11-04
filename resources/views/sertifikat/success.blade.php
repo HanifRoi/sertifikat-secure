@@ -9,7 +9,7 @@
         <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-emerald-100 text-emerald-500 mb-4 shadow-inner">
             <i class="fa-solid fa-check text-5xl"></i>
         </div>
-        <h1 class="text-3xl font-extrabold text-slate-800">Sertifikat Berhasil Diamankan!</h1>
+        <h1 class="text-3xl font-extrabold text-slate-800">Sertifikat Berhasil Dibuat dan Diamankan</h1>
         <p class="text-gray-500 mt-2">Dokumen atas nama <strong class="text-indigo-600">{{ $peserta }}</strong> telah disisipi Kriptografi RSA & SHA3-512.</p>
     </div>
 
@@ -54,7 +54,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left mb-8">
+    {{-- <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left mb-8">
         <div class="bg-purple-50 border-b border-purple-100 p-4">
             <h2 class="text-sm font-bold text-purple-900 uppercase tracking-wider">
                 <i class="fa-solid fa-stopwatch mr-2"></i> Data Pengujian Kriptografi 
@@ -80,7 +80,7 @@
             </div>
 
         </div>
-    </div>
+    </div> --}}
 
     <div class="flex justify-center gap-4">
         <a href="{{ route('sertifikat.create') }}" class="bg-white hover:bg-gray-50 text-slate-700 font-bold py-3 px-6 rounded-xl border border-gray-200 shadow-sm transition">

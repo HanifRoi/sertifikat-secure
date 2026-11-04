@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
 use App\Models\RsaKey;
 use phpseclib3\Crypt\RSA;
@@ -11,13 +10,10 @@ class KriptografiController extends Controller
     public function index()
     {
         $activeKey = RsaKey::where('is_active', true)->first();
-        
-        // Tambahkan with('user') agar nama admin ikut terpanggil
         $historyKeys = RsaKey::with('user')->orderBy('created_at', 'desc')->get();
 
         return view('kriptografi.index', compact('activeKey', 'historyKeys'));
     }
-
     public function generate(Request $request)
     {
         try {
@@ -27,7 +23,7 @@ class KriptografiController extends Controller
             $publicKey  = $privateKey->getPublicKey();
 
             RsaKey::create([
-                'user_id'     => auth()->id(), // <--- REKAM SIAPA YANG LOGIN!
+                'user_id'     => auth()->id(), 
                 'private_key' => $privateKey->toString('PKCS8'),
                 'public_key'  => $publicKey->toString('PKCS8'),
                 'is_active'   => true,

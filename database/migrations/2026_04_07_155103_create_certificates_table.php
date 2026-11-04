@@ -12,23 +12,31 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('certificates', function (Blueprint $table) {
-        $table->id();
-        // Foreign Keys
-        $table->foreignId('participant_id')->constrained('participants')->onDelete('cascade');
-        $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // Siapa admin yang upload
-        $table->foreignId('key_id')->constrained('rsa_keys')->onDelete('cascade'); // Pakai key yang mana
-        
-        // Data Sertifikat
-        $table->string('program'); // Nama program magang
-        $table->string('file_path'); // Path PDF asli/hasil
-        $table->text('document_hash'); // Hasil SHA-3
-        $table->text('digital_signature'); // Hasil Enkripsi RSA
-        $table->string('qr_code_path'); // Path gambar QR Code baru
-        $table->date('publish_date');
-        $table->string('status'); // misal: 'secured', 'revoked'
-        
-        $table->timestamps();
-    });
+            $table->id();
+            
+            // --- PENGAMANAN FOREIGN KEYS ---
+            // Diubah dari 'cascade' menjadi 'restrict' agar data sertifikat tidak bisa ikut terhapus.
+            
+            // 1. Jika data peserta dihapus, sistem akan menolak jika dia sudah punya sertifikat.
+            $table->foreignId('participant_id')->constrained('participants')->onDelete('restrict');
+            
+            // 2. Jika akun admin dihapus, sertifikat yang pernah dia buat tetap aman.
+            $table->foreignId('user_id')->constrained('users')->onDelete('restrict'); 
+            
+            // 3. Jika kunci RSA tidak sengaja dihapus, sertifikat lama tidak akan ikut lenyap.
+            $table->foreignId('key_id')->constrained('rsa_keys')->onDelete('restrict'); 
+            
+            // --- DATA SERTIFIKAT ---
+            $table->string('program'); // Nama program magang
+            $table->string('file_path'); // Path PDF asli/hasil
+            $table->text('document_hash'); // Hasil SHA-3
+            $table->text('digital_signature'); // Hasil Enkripsi RSA
+            $table->string('qr_code_path'); // Path gambar QR Code baru
+            $table->date('publish_date');
+            $table->string('status'); // misal: 'secured', 'revoked'
+            
+            $table->timestamps();
+        });
     }
 
     /**

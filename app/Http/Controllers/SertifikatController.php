@@ -11,193 +11,328 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use setasign\Fpdi\Tcpdf\Fpdi; 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class SertifikatController extends Controller
 {
-    /**
-     * Misi C: Menampilkan Daftar Riwayat Sertifikat
-     */
-    public function index()
+    public function index(Request $request)
     {
-        $certificates = Certificate::with('participant')->latest()->get();
-        return view('sertifikat.index', compact('certificates'));
+        // 1. Ambil daftar instansi untuk dropdown (Wajib ada agar dropdown tidak kosong)
+        $institutions = Participant::select('institution')
+                        ->distinct()
+                        ->whereNotNull('institution')
+                        ->pluck('institution');
+
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $program = $request->input('program');
+        
+        // Tangkap input filter baru
+        $institution = $request->input('institution');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        $certificates = Certificate::with(['participant', 'user'])
+            ->when($search, function($query) use ($search) {
+                $query->where('certificate_number', 'like', "%{$search}%")
+                    ->orWhereHas('participant', function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                          ->orWhere('identifier_number', 'like', "%{$search}%");
+                    });
+            })
+            ->when($status, function($query) use ($status) {
+                $query->where('status', $status);
+            })
+            ->when($program, function($query) use ($program) {
+                $query->whereHas('participant', function($q) use ($program) {
+                    $q->where('program', $program);
+                });
+            })
+           
+            ->when($institution, function($query) use ($institution) {
+                $query->whereHas('participant', function($q) use ($institution) {
+                    $q->where('institution', $institution);
+                });
+            })
+           
+            ->when($startDate, function($query) use ($startDate) {
+                $query->whereDate('publish_date', '>=', $startDate);
+            })
+            ->when($endDate, function($query) use ($endDate) {
+                $query->whereDate('publish_date', '<=', $endDate);
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString(); 
+
+        return view('sertifikat.index', compact('certificates', 'institutions'));
     }
 
-    /**
-     * Menampilkan Form Tambah Sertifikat
-     */
     public function create()
     {
-        return view('sertifikat.create');
-    }
+        $participants = Participant::whereNotIn('id', function($query) {
+            $query->select('participant_id')
+                  ->from('certificates')
+                  ->where('status', 'secured');
+        })->get();
 
-    /**
-     * Misi A: Proses Pembuatan Sertifikat dengan Kriptografi
-     */
-    /**
-     * Misi A: Proses Pembuatan Sertifikat dengan Kriptografi
-     */
+        return view('sertifikat.create', compact('participants'));
+    }
+    
     public function store(Request $request)
     {
         $request->validate([
-            'identifier_number' => 'required',
-            'name'              => 'required',
-            'institution'       => 'required',
-            'study_program'     => 'required', 
-            'program'           => 'required', 
-            'file_pdf'          => 'required|mimes:pdf|max:5120',
+            'participant_id' => 'required|exists:participants,id',
+            'grades'         => 'required|array',
         ]);
 
-        if ($request->hasFile('file_pdf')) {
-            $file = $request->file('file_pdf');
+        $participant = Participant::findOrFail($request->participant_id);
 
-            // 1. Cek Kunci RSA yang sedang Aktif
-            $activeKey = RsaKey::where('is_active', true)->first();
-            if (!$activeKey) {
-                return back()->with('error', 'Kunci Master RSA belum aktif. Silakan aktifkan kunci di menu Kriptografi.');
-            }
-
-            // 2. Generate Token Unik (15 Karakter) untuk URL Verifikasi
-            $token = Str::random(15);
-            $verificationUrl = url('/verify/' . $token); 
-
-            // 3. Penyiapan Path & Nama File
-            $fileName = time() . '_' . str_replace(' ', '_', $file->getClientOriginalName());
-            $mentahPathRelative = $file->storeAs('public/sertifikat_mentah', $fileName);
-            $mentahAbsolutePath = Storage::path($mentahPathRelative);
-            
-            $finalFileName = 'SECURED_' . $fileName;
-            $finalPathRelative = 'public/sertifikat_final/' . $finalFileName;
-            
-            if (!Storage::exists('public/sertifikat_final')) {
-                Storage::makeDirectory('public/sertifikat_final');
-            }
-            $finalAbsolutePath = Storage::path($finalPathRelative);
-
-            // 4. STEMPEL QR CODE KE PDF
-            $pdf = new Fpdi();
-            $pdf->setPrintHeader(false);
-            $pdf->setPrintFooter(false);
-            $pdf->SetAutoPageBreak(false); 
-
-            $pageCount = $pdf->setSourceFile($mentahAbsolutePath);
-            
-            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
-                $templateId = $pdf->importPage($pageNo);
-                $size = $pdf->getTemplateSize($templateId);
-
-                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-                $pdf->useTemplate($templateId);
-
-                if ($pageNo == 1) {
-                    $style = array(
-                        'border' => false,
-                        'padding' => 0,
-                        'fgcolor' => array(0, 0, 0), 
-                        'bgcolor' => array(255, 255, 255) 
-                    );
-                    $pdf->write2DBarcode($verificationUrl, 'QRCODE,M', 218, 178, 30, 30, $style, 'N');
-                    
-                    $pdf->SetFont('helvetica', 'B', 8);
-                    $pdf->SetXY(218, 209); 
-                    $pdf->Cell(30, 4, 'TERVERIFIKASI', 0, 0, 'C');
-                }
-            }
-
-            $pdf->Output($finalAbsolutePath, 'F');
-
-            // --- 5. PROSES KRIPTOGRAFI & PENGUKURAN PERFORMA ---
-            
-            // A. Ukur Kecepatan Hashing SHA3-512
-            $startHashTime = microtime(true);
-            $fileHashHex = hash_file('sha3-512', $finalAbsolutePath);
-            $endHashTime = microtime(true);
-            $waktuHashing = $endHashTime - $startHashTime; // Hasil dalam detik
-
-            // B. Konversi ke Biner Full (512-bit) untuk Uji Avalanche Effect
-            $fileHashBinerFull = '';
-            foreach (str_split($fileHashHex) as $char) {
-                // Ubah setiap 1 karakter hex menjadi 4 digit biner (0000 s/d 1111)
-                $fileHashBinerFull .= str_pad(base_convert($char, 16, 2), 4, '0', STR_PAD_LEFT);
-            }
-
-            // C. Ukur Kecepatan Enkripsi (Signing) RSA
-            $startRsaTime = microtime(true);
-            $privateKey = RSA::loadPrivateKey($activeKey->private_key);
-            $signatureBiner = $privateKey->sign($fileHashHex); // Yang di-sign tetap Hex-nya
-            $digitalSignature = base64_encode($signatureBiner);
-            $endRsaTime = microtime(true);
-            $waktuRsa = $endRsaTime - $startRsaTime; // Hasil dalam detik
-
-
-            // 6. SIMPAN DATA KE DATABASE
-            $participant = Participant::firstOrCreate(
-                ['identifier_number' => $request->identifier_number], 
-                [
-                    'name'          => $request->name,
-                    'institution'   => $request->institution,
-                    'study_program' => $request->study_program,
-                ]
-            );
-
-            $certificate = Certificate::create([
-                'participant_id'    => $participant->id,
-                'user_id'           => auth()->id() ?? 1,
-                'key_id'            => $activeKey->id,      
-                'program'           => $request->program,
-                'file_path'         => $finalPathRelative,  
-                'document_hash'     => $fileHashHex, // Simpan Hex di DB agar efisien
-                'digital_signature' => $digitalSignature,
-                'qr_code_path'      => $token,              
-                'publish_date'      => now()->toDateString(),
-                'status'            => 'secured'            
-            ]);
-
-            Storage::delete($mentahPathRelative);
-
-            $qrCode = QrCode::size(200)->generate($verificationUrl);
-            $downloadLink = route('sertifikat.download', ['filename' => $finalFileName]);
-
-            // Tambahkan data performa dan biner ke View
-            return view('sertifikat.success', [
-                'qrCode'        => $qrCode,
-                'hash'          => $fileHashHex,
-                'hashBiner'     => $fileHashBinerFull, // Lempar Biner 512 bit ke View
-                'waktuHashing'  => number_format($waktuHashing, 5), // Format 5 angka di belakang koma
-                'waktuRsa'      => number_format($waktuRsa, 5), 
-                'signature'     => $digitalSignature,
-                'peserta'       => $participant->name,
-                'downloadLink'  => $downloadLink,
-                'token'         => $token
-            ]);
+        $activeKey = RsaKey::where('is_active', true)->first();
+        if (!$activeKey) {
+            return back()->with('error', 'Kunci Master RSA belum aktif. Silakan aktifkan kunci di menu Kriptografi.');
         }
 
-        return back()->with('error', 'Gagal memproses file PDF.');
+        $tahun = date('Y');
+        $kodeProgram = ($participant->program == 'Magang Industri') ? 'MAGANG' : 'PKL';
+
+        $lastCert = Certificate::whereYear('created_at', $tahun)
+                               ->where('certificate_number', 'like', "%/$kodeProgram/%")
+                               ->latest()
+                               ->first();
+                               
+        $noUrut = $lastCert ? ((int) substr($lastCert->certificate_number, -3)) + 1 : 1;
+        $autoNumber = "CZH/" . $kodeProgram . "/" . $tahun . "/" . str_pad($noUrut, 3, '0', STR_PAD_LEFT);
+
+        // 3. Kalkulasi Nilai, Rata-rata, dan Predikat
+        $totalNilai = array_sum($request->grades);
+        $rataRata = $totalNilai / 10;
+        
+        $predikat = '';
+        if ($rataRata > 90) { $predikat = 'Amat Baik'; }
+        elseif ($rataRata >= 75) { $predikat = 'Baik'; }
+        elseif ($rataRata >= 65) { $predikat = 'Cukup'; }
+        else { $predikat = 'Kurang'; }
+
+        // 4. Penyiapan Teks Dinamis & Tanggal
+        Carbon::setLocale('id');
+        $tanggalSekarang = Carbon::now()->translatedFormat('j F Y'); 
+        
+        $tglMulai = Carbon::parse($participant->start_date)->translatedFormat('j F Y');
+        $tglSelesai = Carbon::parse($participant->end_date)->translatedFormat('j F Y');
+        $rentangMagang = $tglMulai . ' s/d ' . $tglSelesai;
+
+        // -- Teks Otomatis --
+        $judulSertifikat = strtoupper('Sertifikat ' . $participant->program);
+        $teksPembuka = "Dengan ini CAZH ACADEMY memberikan penghargaan sekaligus keterangan berupa " . ucwords(strtolower($judulSertifikat));
+        
+        // PERBAIKAN: Mengubah jadi tag HTML agar Tanggal dan Nilai menjadi BOLD
+        $htmlPengantar1 = "Dalam kegiatan " . $participant->program . " dari tanggal <b>" . $rentangMagang . "</b> dengan hasil penilaian <b>" . $rataRata . " (" . $predikat . ")</b>.";
+        $teksPengantar2 = "Berikut komponen penilaian :";
+        
+        // --- SUDAH DIUBAH KE PEMBIMBING ---
+        $namaPembimbing = auth()->user()->name ?? 'Pembimbing'; // Ambil nama pembimbing yang login
+
+        $token = Str::random(15);
+        $verificationUrl = url('/verify/' . $token); 
+
+        // 5. Penyiapan Path Template
+        $templatePath = storage_path('app/templates/Dummy-Sertifikat.pdf'); 
+        if (!file_exists($templatePath)) {
+            return back()->with('error', 'File template sertifikat tidak ditemukan di storage/app/templates/');
+        }
+
+        $finalFileName = 'SECURED_' . time() . '_PESERTA_' . $participant->id . '.pdf';
+        $finalPathRelative = 'public/sertifikat_final/' . $finalFileName;
+        if (!Storage::exists('public/sertifikat_final')) {
+            Storage::makeDirectory('public/sertifikat_final');
+        }
+        $finalAbsolutePath = Storage::path($finalPathRelative);
+
+        // --- 6. GENERATE PDF DENGAN FPDI ---
+        $pdf = new Fpdi();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetAutoPageBreak(false); 
+
+        $pageCount = $pdf->setSourceFile($templatePath);
+        $templateId = $pdf->importPage(1); 
+        $size = $pdf->getTemplateSize($templateId);
+
+        $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+        $pdf->useTemplate($templateId);
+
+        // --- A. TULIS JUDUL (WARNA UNGU CAZH) & TEKS PEMBUKA ---
+        
+        $pdf->SetTextColor(103, 58, 183);
+        $pdf->SetFont('times', 'BI', 24);
+        $pdf->SetXY(0, 32); 
+        $pdf->Cell(0, 10, $judulSertifikat, 0, 0, 'C'); 
+
+        $pdf->SetTextColor(0, 0, 0);
+
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->SetXY(0, 42); 
+        $pdf->Cell(0, 10, 'No. ' . $autoNumber, 0, 0, 'C');
+
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetXY(25, 52); 
+        $pdf->Cell(0, 10, $teksPembuka, 0, 0, 'L');
+
+        // --- B. TULIS IDENTITAS PESERTA ---
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->SetXY(95, 70); 
+        $pdf->Cell(100, 10, $participant->name, 0, 0, 'L');
+        
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetXY(95, 75); 
+        $pdf->Cell(100, 10, $participant->identifier_number, 0, 0, 'L');
+        
+        $pdf->SetXY(95, 80); 
+        $pdf->Cell(100, 10, $participant->study_program, 0, 0, 'L');
+        
+        $pdf->SetXY(95, 85); 
+        $pdf->Cell(100, 10, $participant->institution, 0, 0, 'L');
+
+        // --- C. TULIS KALIMAT PENGANTAR (2 BARIS RATA KIRI) ---
+        $pdf->SetFont('helvetica', '', 11);
+        
+        // PERBAIKAN: Menggunakan writeHTMLCell untuk mengeksekusi tag <b>
+        // Parameter: (width, height, x, y, html, border, ln, fill, reseth, align, autopadding)
+        $pdf->writeHTMLCell(0, 10, 25, 100, $htmlPengantar1, 0, 1, false, true, 'L', true);
+        
+        $pdf->SetXY(25, 106); 
+        $pdf->Cell(0, 10, $teksPengantar2, 0, 0, 'L'); 
+
+        // --- D. TULIS NILAI (10 Komponen) ---
+        $grades = $request->grades;
+        $pdf->SetFont('helvetica', '', 11);
+        
+        $pdf->SetXY(112, 129); $pdf->Cell(20, 10, $grades['inisiatif'], 0, 0, 'C');
+        $pdf->SetXY(112, 136); $pdf->Cell(20, 10, $grades['kedisiplinan'], 0, 0, 'C');
+        $pdf->SetXY(112, 143); $pdf->Cell(20, 10, $grades['kejujuran'], 0, 0, 'C');
+        $pdf->SetXY(112, 150); $pdf->Cell(20, 10, $grades['ketelitian'], 0, 0, 'C');
+        $pdf->SetXY(112, 157); $pdf->Cell(20, 10, $grades['kerja_sama'], 0, 0, 'C');
+
+        $pdf->SetXY(228, 129); $pdf->Cell(20, 10, $grades['pemahaman_tugas'], 0, 0, 'C');
+        $pdf->SetXY(228, 136); $pdf->Cell(20, 10, $grades['komunikasi'], 0, 0, 'C');
+        $pdf->SetXY(228, 143); $pdf->Cell(20, 10, $grades['perencanaan_projek'], 0, 0, 'C');
+        $pdf->SetXY(228, 150); $pdf->Cell(20, 10, $grades['pengerjaan_projek'], 0, 0, 'C');
+        $pdf->SetXY(228, 157); $pdf->Cell(20, 10, $grades['presentasi_projek'], 0, 0, 'C');
+
+        // --- E. TULIS TANGGAL & TANDA TANGAN (PEMBIMBING) ---
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetXY(195, 168); 
+        $pdf->Cell(50, 10, $tanggalSekarang, 0, 0, 'L'); 
+
+        $pdf->SetFont('helvetica', 'BU', 12);
+        $pdf->SetXY(150, 200); 
+        // --- SUDAH DIUBAH KE PEMBIMBING ---
+        $pdf->Cell(60, 10, strtoupper($namaPembimbing), 0, 0, 'C');
+
+        $style = array('border' => false, 'padding' => 0, 'fgcolor' => array(0, 0, 0), 'bgcolor' => array(255, 255, 255));
+        $pdf->write2DBarcode($verificationUrl, 'QRCODE,M', 230, 175, 25, 25, $style, 'N');
+        
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->SetXY(230, 201); 
+        $pdf->Cell(25, 4, 'TERVERIFIKASI', 0, 0, 'C');
+
+        $pdf->Output($finalAbsolutePath, 'F');
+
+        // --- 7. PROSES KRIPTOGRAFI ---
+        $startHashTime = microtime(true);
+        $fileHashHex = hash_file('sha3-512', $finalAbsolutePath);
+        $endHashTime = microtime(true);
+        $waktuHashing = $endHashTime - $startHashTime; 
+
+        $fileHashBinerFull = '';
+        foreach (str_split($fileHashHex) as $char) {
+            $fileHashBinerFull .= str_pad(base_convert($char, 16, 2), 4, '0', STR_PAD_LEFT);
+        }
+
+        $startRsaTime = microtime(true);
+        $privateKey = RSA::loadPrivateKey($activeKey->private_key);
+        $signatureBiner = $privateKey->sign($fileHashHex); 
+        $digitalSignature = base64_encode($signatureBiner);
+        $endRsaTime = microtime(true);
+        $waktuRsa = $endRsaTime - $startRsaTime; 
+
+        // --- 8. SIMPAN DATA KE DATABASE ---
+        $certificate = Certificate::create([
+            'participant_id'     => $participant->id,
+            'user_id'            => auth()->id() ?? 1,
+            'key_id'             => $activeKey->id,      
+            'certificate_number' => $autoNumber, 
+            'grades'             => json_encode($request->grades),
+            'file_path'          => $finalPathRelative,  
+            'document_hash'      => $fileHashHex, 
+            'digital_signature'  => $digitalSignature,
+            'qr_code_path'       => $token,              
+            'publish_date'       => now()->toDateString(),
+            'status'             => 'secured'            
+        ]);
+
+        $qrCode = QrCode::size(200)->generate($verificationUrl);
+        $downloadLink = route('sertifikat.download', ['filename' => $finalFileName]);
+
+        // PERUBAHAN: Gunakan redirect()->route()->with() untuk Flash Session
+        return redirect()->route('sertifikat.success')->with([
+            'qrCode'        => (string) $qrCode, // Cast ke string agar aman masuk session
+            'hash'          => $fileHashHex,
+            'hashBiner'     => $fileHashBinerFull,
+            'waktuHashing'  => number_format($waktuHashing, 5),
+            'waktuRsa'      => number_format($waktuRsa, 5), 
+            'signature'     => $digitalSignature,
+            'peserta'       => $participant->name,
+            'downloadLink'  => $downloadLink,
+            'token'         => $token
+        ]);
+    }
+    
+    // --- TAMBAHAN: FUNGSI BARU UNTUK MENANGKAP REDIRECT HALAMAN SUKSES ---
+    public function showSuccess()
+    {
+        // Cegah akses langsung ke URL jika tidak ada sesi
+        if (!session()->has('token')) {
+            return redirect()->route('sertifikat.create');
+        }
+
+        return view('sertifikat.success', [
+            'qrCode'        => session('qrCode'),
+            'hash'          => session('hash'),
+            'hashBiner'     => session('hashBiner'),
+            'waktuHashing'  => session('waktuHashing'),
+            'waktuRsa'      => session('waktuRsa'),
+            'signature'     => session('signature'),
+            'peserta'       => session('peserta'),
+            'downloadLink'  => session('downloadLink'),
+            'token'         => session('token'),
+        ]);
     }
 
-    /**
-     * Misi C: Fitur Pencabutan Sertifikat
-     */
     public function revoke($id)
     {
         $certificate = Certificate::findOrFail($id);
-        
-        $certificate->update([
-            'status' => 'dicabut'
-        ]);
-
-        return back()->with('success', 'Sertifikat atas nama ' . $certificate->participant->name . ' telah berhasil dicabut.');
+        $certificate->update(['status' => 'dicabut']);
+        return back()->with('success', 'Sertifikat atas nama ' . $certificate->participant->name . ' telah dicabut.');
     }
 
-    /**
-     * Fungsi untuk Mengunduh PDF yang Sudah Tersertifikasi
-     */
     public function downloadFile($filename)
+    {
+        $path = 'public/sertifikat_final/' . $filename;
+        if (Storage::exists($path)) {
+            return Storage::download($path);
+        }
+        return abort(404, 'File sertifikat tidak ditemukan di server.');
+    }
+    
+    public function previewFile($filename)
     {
         $path = 'public/sertifikat_final/' . $filename;
         
         if (Storage::exists($path)) {
-            return Storage::download($path);
+            // response()->file() akan membuka PDF langsung di browser (tab baru)
+            return response()->file(Storage::path($path));
         }
 
         return abort(404, 'File sertifikat tidak ditemukan di server.');

@@ -6,6 +6,7 @@ use App\Http\Controllers\KriptografiController;
 use App\Http\Controllers\VerifikasiController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PasswordResetController;
 
 // =========================================
 // JALUR TAMU (Belum Login)
@@ -14,6 +15,12 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.process');
 });
+
+Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('password.request');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
+
 
 // =========================================
 // JALUR PUBLIK (Tanpa Login)
@@ -44,7 +51,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/riwayat-sertifikat', [SertifikatController::class, 'index'])->name('sertifikat.index');
     Route::get('/sertifikat/create', [SertifikatController::class, 'create'])->name('sertifikat.create');
     Route::post('/sertifikat/store', [SertifikatController::class, 'store'])->name('sertifikat.store');
+    Route::get('/sertifikat/success', [SertifikatController::class, 'showSuccess'])->name('sertifikat.success');
     Route::post('/sertifikat/{id}/revoke', [SertifikatController::class, 'revoke'])->name('sertifikat.revoke');
     Route::get('/download-sertifikat/{filename}', [SertifikatController::class, 'downloadFile'])->name('sertifikat.download');
+    // Tambahkan baris ini di dekat route sertifikat lainnya
+Route::get('/sertifikat/preview/{filename}', [App\Http\Controllers\SertifikatController::class, 'previewFile'])->name('sertifikat.preview');
 
 });

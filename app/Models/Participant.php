@@ -10,7 +10,10 @@ class Participant extends Model
         'identifier_number', 
         'name', 
         'institution', 
-        'study_program'
+        'study_program',
+        'program',
+        'start_date',
+        'end_date'
     ];
 
     // Relasi: 1 Peserta bisa punya banyak sertifikat (seperti yang kita bahas kemarin)

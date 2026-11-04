@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Amankan Sertifikat Baru')
+@section('title', 'Generate Sertifikat Baru')
 
 @section('content')
 
@@ -14,6 +14,7 @@
             </ul>
         </div>
     @endif
+    
     @if (session('error'))
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow-sm">
             <strong class="font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Gagal!</strong>
@@ -21,105 +22,109 @@
         </div>
     @endif
 
-<div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)]">
+<form action="{{ route('sertifikat.store') }}" method="POST" id="formSertifikat">
+    @csrf
+    <div class="flex flex-col lg:flex-row gap-6">
 
-    <div class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Data Sertifikat</h3>
-        
-        <form action="{{ route('sertifikat.store') }}" method="POST" enctype="multipart/form-data">
-            @csrf
+        <div class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
+                <i class="fa-solid fa-user-graduate mr-2 text-indigo-600"></i>Data Sertifikat
+            </h3>
             
-            <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6">
-                <label class="block text-sm font-semibold text-purple-800 mb-2">1. Upload File Sertifikat (PDF)</label>
-                <input type="file" id="file_pdf" name="file_pdf" accept="application/pdf" required
-                       class="block w-full text-sm text-slate-500
-                              file:mr-4 file:py-2 file:px-4
-                              file:rounded-md file:border-0
-                              file:text-sm file:font-semibold
-                              file:bg-purple-700 file:text-white
-                              hover:file:bg-purple-500
-                              cursor-pointer">
-                <p class="text-xs text-purple-700 mt-2">*Pilih file untuk memunculkan preview di layar kanan</p>
-            </div>
-
-           <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">2. Nomor Identifier (NIM/NIS)</label>
-                <input type="text" name="identifier_number" placeholder="Contoh: 220202669" required
-                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Peserta</label>
-                <input type="text" name="name" placeholder="Sesuai yang tertera di sertifikat" required
-                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Asal Instansi/Kampus</label>
-                <input type="text" name="institution" placeholder="Contoh: Universitas Amikom" required
-                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Program Studi / Jurusan</label>
-                <input type="text" name="study_program" placeholder="Contoh: Teknik Informatika" required
-                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2">
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Jenis Kegiatan (Program)</label>
-                <select name="program" required class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white">
-                    <option value="" disabled selected>Pilih jenis kegiatan...</option>
-                    <option value="Praktik Kerja Lapangan (PKL)">Praktik Kerja Lapangan (PKL)</option>
-                    <option value="Magang Industri">Magang Industri</option>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">1. Pilih Peserta Magang</label>
+                <select name="participant_id" required class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 bg-white text-sm">
+                    <option value="" disabled selected>-- Pilih Mahasiswa / Siswa SMK --</option>
+                    @foreach($participants as $p)
+                        <option value="{{ $p->id }}">{{ $p->identifier_number }} - {{ $p->name }} ({{ $p->institution }})</option>
+                    @endforeach
                 </select>
             </div>
 
-            <hr class="my-4">
-
-            <button type="submit" class="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-800 transition shadow-lg flex justify-center items-center gap-2">
-                <i class="fa-solid fa-lock"></i> Proses Kriptografi & Amankan
-            </button>
-        </form>
-    </div>
-
-    <div class="w-full lg:w-2/3 bg-slate-100 rounded-xl border border-gray-300 shadow-inner flex flex-col overflow-hidden relative">
-        <div class="bg-slate-200 p-2 border-b border-gray-300 flex justify-between items-center px-4">
-            <span class="text-sm font-semibold text-gray-600"><i class="fa-regular fa-eye"></i> Preview Dokumen Asli</span>
-            <span id="file-name-display" class="text-xs text-gray-500 italic">Belum ada file dipilih</span>
+            
         </div>
-        
-        <div id="preview-container" class="flex-1 flex items-center justify-center p-4">
-            <div class="text-center text-gray-400">
-                <i class="fa-regular fa-file-pdf text-6xl mb-3"></i>
-                <p>Silakan upload file PDF di sebelah kiri untuk melihat preview.</p>
+
+        <div class="w-full lg:w-2/3 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fa-solid fa-list-check mr-2 text-purple-600"></i>Input Nilai
+                </h3>
+                <span class="text-xs font-semibold bg-purple-100 text-purple-700 px-2 py-1 rounded">Skala 10 - 100</span>
             </div>
-        </div>
-    </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-inner">
+                    <h4 class="font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                        <span class="w-2 h-6 bg-indigo-600 rounded"></span> Kategori Soft Skill
+                    </h4>
+                    
+                    <div class="space-y-4">
+                        @foreach(['inisiatif' => 'Inisiatif', 'kedisiplinan' => 'Kedisiplinan', 'kejujuran' => 'Kejujuran', 'ketelitian' => 'Ketelitian', 'kerja_sama' => 'Kerja Sama'] as $key => $label)
+                        <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-100">
+                            <label class="text-sm font-medium text-gray-700">{{ $label }}</label>
+                            <input type="number" name="grades[{{ $key }}]" min="10" max="100" placeholder="0" required 
+                                   class="w-20 rounded border-gray-300 p-1 text-center font-bold text-indigo-600 focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
 
-</div>
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 shadow-inner">
+                    <h4 class="font-bold text-purple-800 mb-4 flex items-center gap-2">
+                        <span class="w-2 h-6 bg-purple-600 rounded"></span> Kategori Hard Skill
+                    </h4>
+                    
+                    <div class="space-y-4">
+                        @foreach(['pemahaman_tugas' => 'Pemahaman Tugas', 'komunikasi' => 'Komunikasi', 'perencanaan_projek' => 'Perencanaan Projek', 'pengerjaan_projek' => 'Pengerjaan Projek', 'presentasi_projek' => 'Presentasi Projek'] as $key => $label)
+                        <div class="flex justify-between items-center bg-white p-2 rounded border border-gray-100">
+                            <label class="text-sm font-medium text-gray-700">{{ $label }}</label>
+                            <input type="number" name="grades[{{ $key }}]" min="10" max="100" placeholder="0" required 
+                                   class="w-20 rounded border-gray-300 p-1 text-center font-bold text-purple-600 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button type="submit" id="btnSubmit" class="w-full bg-green-600 text-white font-black py-4 px-6 rounded-xl hover:bg-green-800 transition-all duration-300 transform hover:scale-[1.02] shadow-xl flex justify-center items-center gap-3">
+                    <span id="btnText" class="flex items-center gap-3">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xl"></i> 
+                        GENERATE & AMANKAN SERTIFIKAT SEKARANG
+                    </span>
+                </button>
+                
+                <button type="reset" id="btnCancel" onclick="return confirm('PERINGATAN: Apakah Anda yakin ingin membatalkan dan menghapus semua inputan nilai di form ini?');" class="w-full bg-red-50 text-red-600 font-bold py-3 px-6 rounded-xl border border-red-200 hover:bg-red-100 transition-all duration-300 flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-rotate-left"></i> 
+                    Batal & Bersihkan Form
+                </button>
+            </div>
+            
+            
+        </div>
+
+    </div>
+</form>
 
 <script>
-    document.getElementById('file_pdf').addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        const container = document.getElementById('preview-container');
-        const fileNameDisplay = document.getElementById('file-name-display');
+    document.getElementById('formSertifikat').addEventListener('submit', function(e) {
+        const btnSubmit = document.getElementById('btnSubmit');
+        const btnText = document.getElementById('btnText');
+        const btnCancel = document.getElementById('btnCancel');
 
-        if (file && file.type === 'application/pdf') {
-            // Tampilkan nama file
-            fileNameDisplay.textContent = file.name;
+        // Ubah tampilan tombol submit menjadi loading
+        btnSubmit.classList.remove('hover:bg-green-800', 'hover:scale-[1.02]');
+        btnSubmit.classList.add('opacity-75', 'cursor-wait');
+        btnText.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xl"></i> MEMPROSES KRIPTOGRAFI, HARAP TUNGGU...';
+        
+        // Matikan tombol agar tidak bisa diklik dua kali
+        btnSubmit.disabled = true;
+        btnCancel.disabled = true;
+        btnCancel.classList.add('opacity-50', 'cursor-not-allowed');
 
-            // Buat URL sementara untuk PDF
-            const fileURL = URL.createObjectURL(file);
-            
-            // Masukkan iframe ke dalam container
-            container.innerHTML = `<iframe src="${fileURL}" class="w-full h-full rounded shadow-sm border-0"></iframe>`;
-        } else {
-            container.innerHTML = `<div class="text-center text-red-400">
-                <i class="fa-solid fa-triangle-exclamation text-4xl mb-2"></i>
-                <p>Format file tidak didukung. Harap upload PDF.</p>
-            </div>`;
-        }
+        // Lanjutkan pengiriman form
+        this.submit();
     });
 </script>
+
 @endsection

@@ -1,42 +1,54 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use App\Models\User;
 class AuthController extends Controller
 {
-    // 1. Menampilkan halaman form login
     public function showLoginForm()
     {
         return view('auth.login');
     }
-
-    // 2. Memproses data yang diketik saat login
     public function login(Request $request)
     {
-        // Validasi inputan tidak boleh kosong
-        $credentials = $request->validate([
+        $request->validate([
             'email'    => 'required|email',
             'password' => 'required'
+        ], [
+            'email.required' => 'Harap isi kolom Email Pembimbing.',
+            'email.email'    => 'Format email yang dimasukkan tidak valid.',
+            'password.required' => 'Harap isi kolom Password.'
         ]);
-
-        // Coba cocokkan dengan database
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-            
-            // Jika berhasil, arahkan ke Dashboard
-            return redirect()->intended('/');
+        $throttleKey = Str::lower($request->input('email')) . '|' . $request->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return back()->withErrors([
+                'login_error' => "Terlalu banyak percobaan gagal. Silakan coba lagi dalam {$seconds} detik."
+            ])->onlyInput('email');
         }
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            RateLimiter::hit($throttleKey, 15);
+            return back()->withErrors([
+                'login_error' => 'Email tidak terdaftar di sistem.'
+            ])->onlyInput('email');
+        }
+        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+            RateLimiter::clear($throttleKey);
+            $request->session()->regenerate();
+            return redirect()->intended('/')->with('success', 'Berhasil masuk ke Dashboard CAZHSECURE.');
+        }
+        RateLimiter::hit($throttleKey, 15);
 
-        // Jika gagal, kembalikan ke halaman login bawa pesan error
+        $retriesLeft = RateLimiter::retriesLeft($throttleKey, 5);
+        $pesanError = 'Password yang Anda masukkan salah. ';
+        $pesanError .= $retriesLeft > 0 ? "(Sisa percobaan: {$retriesLeft}x)" : "Akun diblokir sementara.";
         return back()->withErrors([
-            'email' => 'Maaf, Email atau Password Anda salah.',
+            'login_error' => $pesanError
         ])->onlyInput('email');
     }
-
-    // 3. Memproses Logout
     public function logout(Request $request)
     {
         Auth::logout();
